@@ -1439,11 +1439,11 @@ ScalingError ScalingWindow::_CalcFullscreenRendererRect(uint32_t& monitorCount) 
 		GetEnvironmentVariableW(L"MAGPIE_NATIVE_CURSOR_IN_PLACE", inPlace, 2) == 1 && inPlace[0] == L'1' &&
 		GetEnvironmentVariableW(L"MAGPIE_NATIVE_SYSTEM_CURSOR", nativeCursor, 2) == 1 && nativeCursor[0] == L'1';
 	const RECT& source = _srcTracker.SrcRect();
-	MONITORINFO monitor{ .cbSize = sizeof(monitor) };
+	MONITORINFO nativeMonitorInfo{ .cbSize = sizeof(nativeMonitorInfo) };
 	const HMONITOR sourceMonitor = MonitorFromWindow(_srcTracker.Handle(), MONITOR_DEFAULTTONULL);
-	if (requested && sourceMonitor && GetMonitorInfo(sourceMonitor, &monitor) &&
+	if (requested && sourceMonitor && GetMonitorInfo(sourceMonitor, &nativeMonitorInfo) &&
 		CanUseNativeCursorInPlace(requested, _options.Is3DGameMode(),
-			_options.captureMethod == CaptureMethod::GraphicsCapture, source, monitor.rcMonitor)) {
+			_options.captureMethod == CaptureMethod::GraphicsCapture, source, nativeMonitorInfo.rcMonitor)) {
 		_rendererRect = source;
 		_nativeCursorInPlace = true;
 		monitorCount = 1;
