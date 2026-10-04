@@ -2,6 +2,7 @@ name: build
 
 on:
   push:
+    branches-ignore: [native-cursor-v0.6.9]
     paths: [ '.github/workflows/build.yml', 'Magpie.slnx', '*.props', 'scripts/publish.py', 'src/**' ]
   pull_request:
     paths: [ '.github/workflows/build.yml', 'Magpie.slnx', '*.props', 'scripts/publish.py', 'src/**' ]

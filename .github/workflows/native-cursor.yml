@@ -1,0 +1,35 @@
+name: Native cursor 0.6.9 test
+on:
+  push:
+    branches: [native-cursor-v0.6.9]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install cloud build dependencies
+        run: python -m pip install conan
+      - name: Test native cursor eligibility
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $vs = & $vswhere -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (!$vs) { throw 'MSVC not found' }
+          $devcmd = Join-Path $vs 'Common7/Tools/VsDevCmd.bat'
+          cmd /c "`"$devcmd`" -arch=x64 && cl /nologo /std:c++20 /EHsc /W4 /WX tests/native_cursor_policy_test.cpp /Fe:native_cursor_policy_test.exe && native_cursor_policy_test.exe"
+          if ($LASTEXITCODE) { throw 'Cursor policy tests failed' }
+      - name: Compile diagnostic application
+        shell: pwsh
+        run: ./scripts/Build-NativeCursorCloud.ps1
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Magpie-0.6.9-native-cursor-test-x64
+          path: publish/x64
+          if-no-files-found: error

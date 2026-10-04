@@ -119,6 +119,8 @@ private:
 	bool _isCapturedOnOverlay = false;
 
 	bool _isSystemCursorShown = true;
+	bool _nativeCursorRequested = false;
+	bool _nativeCursorActive = false;
 
 	static inline const HCURSOR _hDiagonalSize1Cursor = LoadCursor(NULL, IDC_SIZENWSE);
 	static inline const HCURSOR _hDiagonalSize2Cursor = LoadCursor(NULL, IDC_SIZENESW);

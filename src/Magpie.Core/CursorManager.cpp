@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "FrameTrace.h"
 #include "CursorManager.h"
+#include "NativeCursorPolicy.h"
 #include "Logger.h"
 #include "Renderer.h"
 #include "ScalingOptions.h"
@@ -97,7 +98,11 @@ static POINT ScalingToSrc(POINT pt, RoundMethod roundType = RoundMethod::Round) 
 }
 
 CursorManager::CursorManager() :
-	_lifetime(std::make_shared<ScalingSessionLifetime>(ScalingWindow::RunId())) {}
+	_lifetime(std::make_shared<ScalingSessionLifetime>(ScalingWindow::RunId())) {
+	wchar_t requested[2]{};
+	_nativeCursorRequested = GetEnvironmentVariableW(L"MAGPIE_NATIVE_SYSTEM_CURSOR", requested, 2) == 1 &&
+		requested[0] == L'1';
+}
 
 CursorManager::~CursorManager() noexcept {
 	BeginShutdown();
@@ -542,6 +547,40 @@ void CursorManager::_UpdateCursorState() noexcept {
 	const Renderer& renderer = ScalingWindow::Get().Renderer();
 	const RECT& srcRect = renderer.SrcRect();
 	const RECT& destRect = renderer.DestRect();
+
+	// Native cursor coordinates are valid only for an identity screen mapping.
+	// Scaled, translated, 3D-game and overlay interactions use the original path.
+	if (CanUseNativeSystemCursor(_nativeCursorRequested, options.Is3DGameMode(),
+		_isOnOverlay, _isCapturedOnOverlay, srcRect, destRect)) {
+		POINT point{};
+		if (GetCursorPos(&point) && (!_isUnderCapture || _StopCapture(point, true))) {
+			const HWND hwndScaling = ScalingWindow::Get().Handle();
+			const LONG style = GetWindowExStyle(hwndScaling);
+			if (!(style & WS_EX_TRANSPARENT)) {
+				SetLastError(ERROR_SUCCESS);
+				if (!SetWindowLongW(hwndScaling, GWL_EXSTYLE, style | WS_EX_TRANSPARENT) &&
+					GetLastError() != ERROR_SUCCESS) {
+					Logger::Get().Win32Error("Native cursor: could not enable input pass-through");
+					return;
+				}
+			}
+			_RestoreClipCursor();
+			_isCapturedOnForeground = false;
+			_shouldDrawCursor = false;
+			_hCursor = nullptr;
+			_ClearHitTestResult();
+			_ShowSystemCursor(true);
+			if (!_nativeCursorActive) {
+				Logger::Get().Info("Native system cursor active: identity screen mapping");
+				_nativeCursorActive = true;
+			}
+			return;
+		}
+	}
+	if (_nativeCursorActive) {
+		Logger::Get().Info("Native system cursor fallback: original cursor path");
+		_nativeCursorActive = false;
+	}
 
 	// 优先级: 
 	// 1. 3D 游戏模式: 每帧都限制一次，不退出捕获，不支持多屏幕
