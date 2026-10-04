@@ -1,5 +1,22 @@
 # Native cursor diagnostic build based on 0.6.9
 
+## In-place video option
+
+Start-NativeCursorInPlace.cmd additionally keeps presentation at the original
+window's physical screen rectangle when it fits on one monitor and uses Graphics
+Capture. Use the regular scaling shortcut with the video window focused. The video
+window can remain non-fullscreen. Effects run at the same size, including XeSS FG;
+Magpie no longer expands this window to fill the monitor. 3D game mode, Desktop
+Duplication and off-monitor/cross-monitor windows fall back to normal presentation.
+Use same-resolution effects (the prepared CAS + XeSS FG group); explicit upscaling
+effects cannot retain identical cursor coordinates. Fullscreen video still works.
+The regular launcher retains the previous fullscreen presentation behavior.
+
+新版原位置模式：退出 Magpie 托盘后，运行 Start-NativeCursorInPlace.cmd。
+使用 Graphics Capture、轻度锐化加补帧 2 倍，聚焦视频窗口并按原缩放快捷键。
+窗口保持原大小和位置，可使用系统光标。不会把小窗口放大铺满屏幕。
+拖动/改变窗口大小时可能重启捕获；请验证点击、最小化恢复和全屏切换。
+
 Fully exit the original Magpie from its tray before launching Start-NativeCursor.cmd.
 This launcher opts into Windows cursor presentation. Launching Magpie.exe directly
 uses the original cursor path. Keep the original application in its own folder.

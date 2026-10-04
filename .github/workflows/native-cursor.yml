@@ -30,6 +30,11 @@ jobs:
         run: ./scripts/Build-NativeCursorCloud.ps1
       - uses: actions/upload-artifact@v7
         with:
+          name: Magpie-0.6.9-native-cursor-patch-x64
+          path: publish/cursor-patch
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
           name: Magpie-0.6.9-native-cursor-test-x64
           path: publish/x64
           if-no-files-found: error

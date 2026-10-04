@@ -3,6 +3,7 @@
 #include "ScalingWindow.h"
 #include "CommonSharedConstants.h"
 #include "CursorManager.h"
+#include "NativeCursorPolicy.h"
 #include "ExclModeHelper.h"
 #include "Logger.h"
 #include "Renderer.h"
@@ -130,6 +131,7 @@ ScalingError ScalingWindow::_StartImpl(HWND hwndSrc) noexcept {
 	_shouldWaitForRender = false;
 	_areResizeHelperWindowsVisible = false;
 	_isSrcRepositioning = false;
+	_nativeCursorInPlace = false;
 
 	if (_options.IsWindowedMode()) {
 		if (_options.Is3DGameMode()) {
@@ -355,7 +357,7 @@ ScalingError ScalingWindow::_StartImpl(HWND hwndSrc) noexcept {
 			WS_EX_LAYERED | WS_EX_NOACTIVATE | WS_EX_NOREDIRECTIONBITMAP,
 			CommonSharedConstants::SCALING_WINDOW_CLASS_NAME,
 			nullptr,
-			WS_POPUP | (monitorCount == 1 ? WS_MAXIMIZE : 0),
+			WS_POPUP | (monitorCount == 1 && !_nativeCursorInPlace ? WS_MAXIMIZE : 0),
 			_windowRect.left,
 			_windowRect.top,
 			_windowRect.right - _windowRect.left,
@@ -1429,6 +1431,26 @@ RECT ScalingWindow::_CalcWindowedRendererRect() const noexcept {
 
 // 返回缩放窗口跨越的屏幕数量，失败返回 0
 ScalingError ScalingWindow::_CalcFullscreenRendererRect(uint32_t& monitorCount) noexcept {
+	// Optional video-only presentation: keep the source's physical screen bounds
+	// so Windows cursor movement and clicks never need coordinate remapping.
+	wchar_t inPlace[2]{};
+	wchar_t nativeCursor[2]{};
+	const bool requested =
+		GetEnvironmentVariableW(L"MAGPIE_NATIVE_CURSOR_IN_PLACE", inPlace, 2) == 1 && inPlace[0] == L'1' &&
+		GetEnvironmentVariableW(L"MAGPIE_NATIVE_SYSTEM_CURSOR", nativeCursor, 2) == 1 && nativeCursor[0] == L'1';
+	const RECT& source = _srcTracker.SrcRect();
+	MONITORINFO monitor{ .cbSize = sizeof(monitor) };
+	const HMONITOR sourceMonitor = MonitorFromWindow(_srcTracker.Handle(), MONITOR_DEFAULTTONULL);
+	if (requested && sourceMonitor && GetMonitorInfo(sourceMonitor, &monitor) &&
+		CanUseNativeCursorInPlace(requested, _options.Is3DGameMode(),
+			_options.captureMethod == CaptureMethod::GraphicsCapture, source, monitor.rcMonitor)) {
+		_rendererRect = source;
+		_nativeCursorInPlace = true;
+		monitorCount = 1;
+		Logger::Get().Info("Native cursor in-place presentation: preserving source screen bounds");
+		return ScalingError::NoError;
+	}
+	_nativeCursorInPlace = false;
 	switch (_options.multiMonitorUsage) {
 	// 使用距离源窗口最近的显示器
 	case MultiMonitorUsage::Closest:

@@ -233,6 +233,7 @@ private:
 
 	RECT _windowRect{};
 	RECT _rendererRect{};
+	bool _nativeCursorInPlace = false;
 	HWND _hwndRenderer = NULL;
 
 	uint32_t _currentDpi = USER_DEFAULT_SCREEN_DPI;

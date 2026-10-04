@@ -18,7 +18,7 @@ function Clone-Sdk($url, $folder, $revision) {
 $xess = Join-Path $deps 'xess'
 $vfx = Join-Path $deps 'vfx'
 Clone-Sdk 'https://github.com/intel/xess.git' $xess '207b703ad215da5b86dde04819a16277a96980aa'
-Clone-Sdk 'https://github.com/NVIDIA-Maxine/Maxine-VFX-SDK.git' $vfx ''
+Clone-Sdk 'https://github.com/NVIDIA-Maxine/Maxine-VFX-SDK.git' $vfx 'f12bd18929e9065cff4f24cb93ac5f4202dc1c4a'
 $originalZip = Join-Path $deps 'original.zip'
 Invoke-WebRequest 'https://github.com/SAOG0721/Magpie/releases/download/v0.6.9-experimental/Magpie-Experimental-x64.zip' -OutFile $originalZip
 if ((Get-FileHash $originalZip -Algorithm SHA256).Hash -ine 'f4233fc34b26db6f9bcb5e8fb4a527266806a949b35f5d8feb3c0e53058dfead') { throw 'Original package checksum mismatch' }
@@ -51,6 +51,7 @@ foreach ($file in Get-ChildItem $original -File) {
     }
 }
 Copy-Item scripts/Start-NativeCursor.cmd $package
+Copy-Item scripts/Start-NativeCursorInPlace.cmd $package
 Copy-Item docs/NATIVE-CURSOR-TEST.md $package
 $manifest = [ordered]@{
     version='0.6.9-native-cursor-test'; baseCommit='27c5df91177a29b33be612e98274169f3d2fca49'; commit=$env:GITHUB_SHA
@@ -62,4 +63,14 @@ $manifest = [ordered]@{
 $manifest | ConvertTo-Json -Depth 6 | Set-Content (Join-Path $package 'native-cursor-build-manifest.json') -Encoding utf8
 foreach ($required in @('Magpie.exe','libxess_fg.dll','libxell.dll')) {
     if (!(Test-Path (Join-Path $package $required))) { throw "Missing build output: $required" }
+}
+# A smaller patch reuses the prior diagnostic package's runtime DLLs. The full
+# manifest still verifies all files after the local merge.
+$patch = Join-Path $PWD 'publish/cursor-patch'
+New-Item -ItemType Directory -Path $patch -Force | Out-Null
+foreach ($file in Get-ChildItem $package -Recurse -File) {
+    if ($file.Extension -ieq '.dll') { continue }
+    $destination = Join-Path $patch ([IO.Path]::GetRelativePath($package, $file.FullName))
+    New-Item -ItemType Directory -Path (Split-Path $destination -Parent) -Force | Out-Null
+    Copy-Item -LiteralPath $file.FullName -Destination $destination
 }
