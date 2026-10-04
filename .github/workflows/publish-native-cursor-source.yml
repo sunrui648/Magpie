@@ -1,0 +1,43 @@
+name: Publish native cursor source prerelease
+on:
+  push:
+    branches: [native-cursor-v0.6.9]
+    paths:
+      - .github/workflows/publish-native-cursor-source.yml
+      - docs/NATIVE-CURSOR-RELEASE-ZH.md
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Publish source-only prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_COMMIT: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, urllib.request, urllib.error
+          base = 'https://api.github.com/repos/' + os.environ['REPOSITORY']
+          tag = 'v0.6.9-native-cursor-source.1'
+          headers = {'Authorization': 'Bearer ' + os.environ['GH_TOKEN'],
+                     'Accept': 'application/vnd.github+json', 'User-Agent': 'Magpie-source-release'}
+          try:
+              with urllib.request.urlopen(urllib.request.Request(base + '/releases/tags/' + tag, headers=headers)) as r:
+                  release = json.load(r)
+          except urllib.error.HTTPError as e:
+              if e.code != 404:
+                  raise
+              payload = {'tag_name': tag, 'target_commitish': os.environ['RELEASE_COMMIT'],
+                         'name': 'Magpie 0.6.9 系统光标修改（源码测试版）',
+                         'body': pathlib.Path('docs/NATIVE-CURSOR-RELEASE-ZH.md').read_text(encoding='utf-8'),
+                         'draft': False, 'prerelease': True}
+              req = urllib.request.Request(base + '/releases', data=json.dumps(payload).encode(),
+                                           headers={**headers, 'Content-Type': 'application/json'}, method='POST')
+              with urllib.request.urlopen(req) as r:
+                  release = json.load(r)
+          print('Published source prerelease: ' + release['html_url'])
+          PY
